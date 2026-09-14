@@ -1,8 +1,11 @@
+import time
+
+from datetime import datetime, timezone
 from mininet.net import Mininet
 from mininet.node import OVSSwitch
 from mininet.link import TCLink
 
-from telemetry.network import collect_cluster_stats
+from telemetry.network import collect_cluster_stats, add_rates
 
 
 def main():
@@ -32,9 +35,31 @@ def main():
     try:
         net.start()
 
-        stats = collect_cluster_stats(net)
+        # Take the first telemetry sample.
+        start_time = time.time()
+        previous_stats = collect_cluster_stats(net)
 
-        for item in stats:
+        # Wait before taking the second sample.
+        time.sleep(2)
+
+        # Take the second telemetry sample.
+        current_stats = collect_cluster_stats(net)
+        end_time = time.time()
+        timestamp = datetime.now(timezone.utc).isoformat()
+        elapsed_time = end_time - start_time
+
+        for current in current_stats:
+            current["timestamp"] = timestamp
+
+        # Add traffic rates to each current sample.
+        for previous, current in zip(previous_stats, current_stats):
+            add_rates(
+                previous,
+                current,
+                elapsed_time
+            )
+
+        for item in current_stats:
             print(item)
 
     finally:
