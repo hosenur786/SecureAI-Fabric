@@ -2,7 +2,7 @@ from mininet.net import Mininet
 from mininet.node import OVSSwitch
 from mininet.link import TCLink
 
-from telemetry.network import read_interface_stats
+from telemetry.network import collect_cluster_stats
 
 
 def main():
@@ -18,19 +18,24 @@ def main():
         failMode="standalone"
     )
 
-    gpu1 = net.addHost(
-        "GPU-01",
-        ip="10.0.0.1/24"
-    )
+    for i in range(1, 7):
+        gpu_name = f"GPU-{i:02d}"
+        ip_address = f"10.0.0.{i}/24"
 
-    net.addLink(gpu1, switch)
+        host = net.addHost(
+            gpu_name,
+            ip=ip_address
+        )
+
+        net.addLink(host, switch)
 
     try:
         net.start()
 
-        stats = read_interface_stats(gpu1)
+        stats = collect_cluster_stats(net)
 
-        print(stats)
+        for item in stats:
+            print(item)
 
     finally:
         net.stop()
