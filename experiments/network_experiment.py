@@ -1,6 +1,7 @@
 import time
+import json
 from datetime import datetime, timezone
-
+from pathlib import Path
 from network.topology import build_topology
 from scenarios.network_traffic import normal_traffic, high_rate_traffic
 from telemetry.network import collect_cluster_stats, add_rates
@@ -19,6 +20,20 @@ def collect_sample(net):
         item["timestamp"] = timestamp
 
     return stats
+
+def save_records(records, file_path="data/network_experiments.jsonl"):
+    """
+    Append telemetry records to a JSON Lines file.
+    """
+
+    path = Path(file_path)
+
+    # Create the data directory if it does not exist.
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    with path.open("a", encoding="utf-8") as file:
+        for record in records:
+            file.write(json.dumps(record) + "\n")
 
 
 def run_experiment(net, scenario_function, scenario_name):
@@ -50,10 +65,20 @@ def run_experiment(net, scenario_function, scenario_name):
             elapsed_time
         )
 
+    # Add experiment metadata to each telemetry record.
+    for item in after_stats:
+        item["scenario"] = scenario_name
+        item["scenario_duration_s"] = round(elapsed_time, 3)
+
+    # Save the experiment results.
+    save_records(after_stats)
+
     print(f"Elapsed time: {elapsed_time:.3f} seconds")
 
     for item in after_stats:
         print(item)
+
+
 
 
 def main():
