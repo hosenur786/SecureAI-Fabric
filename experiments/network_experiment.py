@@ -1,4 +1,5 @@
 import time
+import uuid
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -21,6 +22,29 @@ def collect_sample(net):
 
     return stats
 
+
+def get_node_label(scenario_name, node_name):
+    """
+    Determine whether a specific GPU node is normal or anomalous
+    for the current controlled scenario.
+    """
+
+    anomalous_nodes = {
+        "NORMAL TRAFFIC": set(),
+        "HIGH-RATE TRAFFIC": {"GPU-01", "GPU-02"},
+    }
+
+    if scenario_name not in anomalous_nodes:
+        raise ValueError(
+            f"Unknown scenario: {scenario_name}"
+        )
+
+    if node_name in anomalous_nodes[scenario_name]:
+        return "anomalous"
+
+    return "normal"
+
+
 def save_records(records, file_path="data/network_experiments.jsonl"):
     """
     Append telemetry records to a JSON Lines file.
@@ -42,6 +66,7 @@ def run_experiment(net, scenario_function, scenario_name):
     """
 
     print(f"\n=== {scenario_name} ===")
+    experiment_id = str(uuid.uuid4())
 
     # Measure the network before the scenario.
     before_stats = collect_sample(net)
@@ -65,9 +90,13 @@ def run_experiment(net, scenario_function, scenario_name):
             elapsed_time
         )
 
-    # Add experiment metadata to each telemetry record.
     for item in after_stats:
+        item["experiment_id"] = experiment_id
         item["scenario"] = scenario_name
+        item["node_label"] = get_node_label(
+            scenario_name,
+            item["node"]
+        )
         item["scenario_duration_s"] = round(elapsed_time, 3)
 
     # Save the experiment results.
