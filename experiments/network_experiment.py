@@ -109,12 +109,20 @@ def run_experiment(net, scenario_function, scenario_name):
 
 
 
+def run_repeated_experiments(net, repetitions=3):
+    """
+    Run the network scenarios multiple times.
 
-def main():
-    net = build_topology(gpu_count=6)
+    Args:
+        net: Active Mininet network.
+        repetitions: Number of times to run each scenario.
+    """
 
-    try:
-        net.start()
+    for run_number in range(1, repetitions + 1):
+        print(
+            f"\n========== EXPERIMENT RUN {run_number} "
+            f"OF {repetitions} =========="
+        )
 
         # Run the normal traffic experiment.
         run_experiment(
@@ -128,6 +136,18 @@ def main():
             net,
             high_rate_traffic,
             "HIGH-RATE TRAFFIC"
+        )
+
+
+def main():
+    net = build_topology(gpu_count=6)
+
+    try:
+        net.start()
+
+        run_repeated_experiments(
+            net,
+            repetitions=3
         )
 
     finally:
