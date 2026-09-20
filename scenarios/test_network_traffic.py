@@ -1,5 +1,9 @@
 from network.topology import build_topology
-from scenarios.network_traffic import normal_traffic, high_rate_traffic
+from scenarios.network_traffic import (
+    normal_traffic,
+    moderate_rate_traffic,
+    high_rate_traffic
+)
 
 
 def main():
@@ -11,6 +15,9 @@ def main():
         print("\n--- Normal traffic ---")
         for result in normal_traffic(net):
             print(result)
+
+        print("\n--- Moderate-rate traffic ---")
+        print(moderate_rate_traffic(net))
 
         print("\n--- High-rate traffic ---")
         print(high_rate_traffic(net))

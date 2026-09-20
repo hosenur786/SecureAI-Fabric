@@ -4,7 +4,11 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 from network.topology import build_topology
-from scenarios.network_traffic import normal_traffic, high_rate_traffic
+from scenarios.network_traffic import (
+    normal_traffic,
+    moderate_rate_traffic,
+    high_rate_traffic
+)
 from telemetry.network import collect_cluster_stats, add_rates
 
 
@@ -31,6 +35,7 @@ def get_node_label(scenario_name, node_name):
 
     anomalous_nodes = {
         "NORMAL TRAFFIC": set(),
+        "MODERATE-RATE TRAFFIC": set(),
         "HIGH-RATE TRAFFIC": {"GPU-01", "GPU-02"},
     }
 
@@ -108,30 +113,26 @@ def run_experiment(net, scenario_function, scenario_name):
         print(item)
 
 
-
 def run_repeated_experiments(net, repetitions=3):
     """
-    Run the network scenarios multiple times.
-
-    Args:
-        net: Active Mininet network.
-        repetitions: Number of times to run each scenario.
+    Run multiple repetitions of each network scenario.
     """
 
-    for run_number in range(1, repetitions + 1):
-        print(
-            f"\n========== EXPERIMENT RUN {run_number} "
-            f"OF {repetitions} =========="
-        )
+    for i in range(repetitions):
+        print(f"\n========== Repetition {i + 1} ==========")
 
-        # Run the normal traffic experiment.
         run_experiment(
             net,
             normal_traffic,
             "NORMAL TRAFFIC"
         )
 
-        # Run the high-rate traffic experiment.
+        run_experiment(
+            net,
+            moderate_rate_traffic,
+            "MODERATE-RATE TRAFFIC"
+        )
+
         run_experiment(
             net,
             high_rate_traffic,

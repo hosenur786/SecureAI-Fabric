@@ -28,3 +28,19 @@ def high_rate_traffic(net):
     gpu1 = net.get("GPU-01")
 
     return gpu1.cmd("ping -c 100 -i 0.01 10.0.0.2")
+
+
+def moderate_rate_traffic(net):
+    """
+    Generate controlled moderate-rate ICMP traffic
+    between two GPU nodes.
+
+    Returns:
+        The ping command result.
+    """
+
+    gpu1 = net.get("GPU-01")
+
+    return gpu1.cmd(
+        "ping -c 50 -i 0.05 10.0.0.2"
+    )
