@@ -65,7 +65,7 @@ def save_records(records, file_path="data/network_experiments.jsonl"):
             file.write(json.dumps(record) + "\n")
 
 
-def run_experiment(net, scenario_function, scenario_name):
+def run_experiment(net, scenario_function, scenario_name, scenario_parameters=None):
     """
     Run one traffic scenario and measure its network behavior.
     """
@@ -97,6 +97,7 @@ def run_experiment(net, scenario_function, scenario_name):
 
     for item in after_stats:
         item["experiment_id"] = experiment_id
+        item["scenario_parameters"] = scenario_parameters or {}
         item["scenario"] = scenario_name
         item["node_label"] = get_node_label(
             scenario_name,
@@ -112,14 +113,37 @@ def run_experiment(net, scenario_function, scenario_name):
     for item in after_stats:
         print(item)
 
-
 def run_repeated_experiments(net, repetitions=3):
     """
-    Run multiple repetitions of each network scenario.
+    Run multiple repetitions of each network scenario
+    using controlled traffic variations.
     """
+
+    traffic_variations = [
+        {
+            "moderate_count": 40,
+            "moderate_interval": 0.075,
+            "high_count": 80,
+            "high_interval": 0.02
+        },
+        {
+            "moderate_count": 50,
+            "moderate_interval": 0.05,
+            "high_count": 100,
+            "high_interval": 0.01
+        },
+        {
+            "moderate_count": 60,
+            "moderate_interval": 0.04,
+            "high_count": 120,
+            "high_interval": 0.01
+        }
+    ]
 
     for i in range(repetitions):
         print(f"\n========== Repetition {i + 1} ==========")
+
+        variation = traffic_variations[i % len(traffic_variations)]
 
         run_experiment(
             net,
@@ -129,14 +153,31 @@ def run_repeated_experiments(net, repetitions=3):
 
         run_experiment(
             net,
-            moderate_rate_traffic,
-            "MODERATE-RATE TRAFFIC"
+            lambda network: moderate_rate_traffic(
+                network,
+                count=variation["moderate_count"],
+                interval=variation["moderate_interval"]
+            ),
+             "MODERATE-RATE TRAFFIC",
+           {
+                "count": variation["moderate_count"],
+                "interval": variation["moderate_interval"]
+           }
         )
+
 
         run_experiment(
             net,
-            high_rate_traffic,
-            "HIGH-RATE TRAFFIC"
+            lambda network: high_rate_traffic(
+                network,
+                count=variation["high_count"],
+                interval=variation["high_interval"]
+            ),
+            "HIGH-RATE TRAFFIC",
+            {
+                "count": variation["high_count"],
+                "interval": variation["high_interval"]
+             }
         )
 
 
