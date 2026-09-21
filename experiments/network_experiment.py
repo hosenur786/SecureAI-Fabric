@@ -148,7 +148,7 @@ def main():
 
         run_repeated_experiments(
             net,
-            repetitions=3
+            repetitions=20
         )
 
     finally:
