@@ -17,6 +17,13 @@ def read_interface_stats(host):
     rx_packets = host.cmd(
         f"cat /sys/class/net/{interface}/statistics/rx_packets"
     ).strip()
+    rx_dropped = host.cmd(
+        f"cat /sys/class/net/{interface}/statistics/rx_dropped"
+    ).strip()
+
+    tx_dropped = host.cmd(
+        f"cat /sys/class/net/{interface}/statistics/tx_dropped"
+    ).strip()
 
     tx_bytes = host.cmd(
         f"cat /sys/class/net/{interface}/statistics/tx_bytes"
@@ -33,6 +40,8 @@ def read_interface_stats(host):
         "rx_packets": int(rx_packets),
         "tx_bytes": int(tx_bytes),
         "tx_packets": int(tx_packets),
+        "rx_dropped": int(rx_dropped),
+        "tx_dropped": int(tx_dropped),
     }
 
 
@@ -94,6 +103,18 @@ def add_rates(previous, current, elapsed_time):
     current["rx_packets_per_sec"] = calculate_rate(
         previous["rx_packets"],
         current["rx_packets"],
+        elapsed_time
+    )
+    
+    current["rx_dropped_per_sec"] = calculate_rate(
+        previous["rx_dropped"],
+        current["rx_dropped"],
+        elapsed_time
+    )
+
+    current["tx_dropped_per_sec"] = calculate_rate(
+        previous["tx_dropped"],
+        current["tx_dropped"],
         elapsed_time
     )
 
