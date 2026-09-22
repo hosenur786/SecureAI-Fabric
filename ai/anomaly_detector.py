@@ -278,3 +278,191 @@ def split_train_validation_test(records, random_state=42):
     ]
 
     return train_records, validation_records, test_records
+
+
+def evaluate_predictions(actual, predicted):
+    """
+    Calculate classification metrics for anomaly detection.
+
+    Args:
+        actual: Actual labels.
+        predicted: Model-predicted labels.
+
+    Returns:
+        A dictionary containing TP, FP, TN, FN,
+        precision, recall, F1, and false-positive rate.
+    """
+
+    tp = sum(
+        1
+        for actual_label, predicted_label in zip(actual, predicted)
+        if actual_label == "anomalous"
+        and predicted_label == "anomalous"
+    )
+
+    fp = sum(
+        1
+        for actual_label, predicted_label in zip(actual, predicted)
+        if actual_label == "normal"
+        and predicted_label == "anomalous"
+    )
+
+    tn = sum(
+        1
+        for actual_label, predicted_label in zip(actual, predicted)
+        if actual_label == "normal"
+        and predicted_label == "normal"
+    )
+
+    fn = sum(
+        1
+        for actual_label, predicted_label in zip(actual, predicted)
+        if actual_label == "anomalous"
+        and predicted_label == "normal"
+    )
+
+    precision = (
+        tp / (tp + fp)
+        if tp + fp
+        else 0.0
+    )
+
+    recall = (
+        tp / (tp + fn)
+        if tp + fn
+        else 0.0
+    )
+
+    f1 = (
+        2 * precision * recall / (precision + recall)
+        if precision + recall
+        else 0.0
+    )
+
+    fpr = (
+        fp / (fp + tn)
+        if fp + tn
+        else 0.0
+    )
+
+    return {
+        "tp": tp,
+        "fp": fp,
+        "tn": tn,
+        "fn": fn,
+        "precision": precision,
+        "recall": recall,
+        "f1": f1,
+        "fpr": fpr,
+    }
+
+
+def main():
+    """
+    Run the complete network anomaly detection baseline.
+    """
+
+    # Load the complete dataset.
+    records = load_dataset()
+
+    # Split experiments into training, validation, and test sets.
+    train_records, validation_records, test_records = (
+        split_train_validation_test(records)
+    )
+
+    # Use only normal training samples to train the detector.
+    training_features = get_normal_features(train_records)
+
+    model = train_model(training_features)
+
+    # Generate anomaly scores for the validation set.
+    validation_features = extract_features(validation_records)
+
+    validation_scores = anomaly_scores(
+        model,
+        validation_features
+    )
+
+    validation_labels = [
+        record["node_label"]
+        for record in validation_records
+    ]
+
+    # Find the best threshold using validation data only.
+    threshold, validation_metrics = find_best_threshold(
+        validation_scores,
+        validation_labels
+    )
+
+    # Evaluate the frozen threshold on the unseen test set.
+    test_features = extract_features(test_records)
+
+    test_scores = anomaly_scores(
+        model,
+        test_features
+    )
+
+    test_actual = [
+        record["node_label"]
+        for record in test_records
+    ]
+
+    test_predicted = [
+        "anomalous" if score >= threshold else "normal"
+        for score in test_scores
+    ]
+
+    test_metrics = evaluate_predictions(
+        test_actual,
+        test_predicted
+    )
+
+    print("\n=== SecureAI-Fabric Network Anomaly Detection ===")
+    print(f"Total records: {len(records)}")
+    print(f"Training records: {len(train_records)}")
+    print(f"Validation records: {len(validation_records)}")
+    print(f"Test records: {len(test_records)}")
+
+    print(
+        f"\nNormal training samples: "
+        f"{len(training_features)}"
+    )
+
+    print(
+        f"Validation threshold: "
+        f"{threshold:.17g}"
+    )
+
+    print("\n--- Validation ---")
+    print(
+        f"Precision: {validation_metrics['precision']:.4f}"
+    )
+    print(
+        f"Recall:    {validation_metrics['recall']:.4f}"
+    )
+    print(
+        f"F1:        {validation_metrics['f1']:.4f}"
+    )
+
+    print("\n--- Test ---")
+    print(f"TP: {test_metrics['tp']}")
+    print(f"FP: {test_metrics['fp']}")
+    print(f"TN: {test_metrics['tn']}")
+    print(f"FN: {test_metrics['fn']}")
+
+    print(
+        f"Precision: {test_metrics['precision']:.4f}"
+    )
+    print(
+        f"Recall:    {test_metrics['recall']:.4f}"
+    )
+    print(
+        f"F1:        {test_metrics['f1']:.4f}"
+    )
+    print(
+        f"FPR:       {test_metrics['fpr']:.4f}"
+    )
+
+
+if __name__ == "__main__":
+    main()
