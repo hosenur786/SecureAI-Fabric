@@ -25,6 +25,36 @@ def get_ovs_flows(switch_name="s1"):
 
     return result.stdout
 
+def install_icmp_monitoring_rules(switch_name="s1"):
+    """
+    Install ICMP flow-monitoring rules for the traffic
+    patterns used by SecureAI-Fabric experiments.
+    """
+
+    monitored_flows = [
+        ("10.0.0.1", "10.0.0.2"),
+        ("10.0.0.3", "10.0.0.4"),
+        ("10.0.0.5", "10.0.0.6"),
+    ]
+
+    for src_ip, dst_ip in monitored_flows:
+        subprocess.run(
+            [
+                "ovs-ofctl",
+                "-O",
+                "OpenFlow13",
+                "add-flow",
+                switch_name,
+                (
+                    "priority=110,"
+                    f"icmp,nw_src={src_ip},"
+                    f"nw_dst={dst_ip},"
+                    "actions=NORMAL"
+                )
+            ],
+            check=True
+        )
+
 
 def parse_flow_line(line):
     """
@@ -93,3 +123,89 @@ def collect_flow_stats(switch_name="s1"):
             flows.append(flow)
 
     return flows
+
+def calculate_flow_rates(previous_flows, current_flows, elapsed_time):
+    """
+    Calculate packet and byte rates for observed flows.
+
+    Returns:
+        Current flow records with delta and per-second fields.
+    """
+
+    if elapsed_time <= 0:
+        elapsed_time = 1.0
+
+    previous_lookup = {
+        (
+            flow["src_ip"],
+            flow["dst_ip"],
+            flow["protocol"]
+        ): flow
+        for flow in previous_flows
+    }
+
+    results = []
+
+    for current in current_flows:
+        key = (
+            current["src_ip"],
+            current["dst_ip"],
+            current["protocol"]
+        )
+
+        previous = previous_lookup.get(key)
+
+        if previous is None:
+            previous_packets = 0
+            previous_bytes = 0
+        else:
+            previous_packets = previous["packets"]
+            previous_bytes = previous["bytes"]
+
+        packet_delta = current["packets"] - previous_packets
+        byte_delta = current["bytes"] - previous_bytes
+
+        flow = current.copy()
+
+        flow["packet_delta"] = packet_delta
+        flow["byte_delta"] = byte_delta
+        flow["packets_per_sec"] = packet_delta / elapsed_time
+        flow["bytes_per_sec"] = byte_delta / elapsed_time
+
+        results.append(flow)
+
+    return results
+
+
+def save_flow_records(
+    flow_records,
+    experiment_id,
+    scenario,
+    scenario_parameters=None,
+    file_path="data/flow_experiments.jsonl"
+):
+    """
+    Save flow telemetry records to a JSON Lines file.
+
+    Each flow record is enriched with experiment metadata.
+    """
+
+    from pathlib import Path
+    import json
+
+    path = Path(file_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    scenario_parameters = scenario_parameters or {}
+
+    with path.open("a", encoding="utf-8") as file:
+        for flow in flow_records:
+            record = flow.copy()
+
+            record["experiment_id"] = experiment_id
+            record["scenario"] = scenario
+            record["scenario_parameters"] = scenario_parameters
+
+            file.write(
+                json.dumps(record) + "\n"
+            )

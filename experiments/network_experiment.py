@@ -10,7 +10,12 @@ from scenarios.network_traffic import (
     high_rate_traffic
 )
 from telemetry.network import collect_cluster_stats, add_rates
-
+from telemetry.flows import (
+    install_icmp_monitoring_rules,
+    collect_flow_stats,
+    calculate_flow_rates,
+    save_flow_records
+)
 
 def collect_sample(net):
     """
@@ -64,7 +69,6 @@ def save_records(records, file_path="data/network_experiments.jsonl"):
         for record in records:
             file.write(json.dumps(record) + "\n")
 
-
 def run_experiment(net, scenario_function, scenario_name, scenario_parameters=None):
     """
     Run one traffic scenario and measure its network behavior.
@@ -75,19 +79,23 @@ def run_experiment(net, scenario_function, scenario_name, scenario_parameters=No
 
     # Measure the network before the scenario.
     before_stats = collect_sample(net)
+    before_flows = collect_flow_stats("s1")
+
     # Measure only the time spent executing the scenario.
     scenario_start = time.monotonic()
 
     # Generate the traffic scenario.
     scenario_function(net)
+
     scenario_end = time.monotonic()
 
     # Measure the network after the scenario.
     after_stats = collect_sample(net)
+    after_flows = collect_flow_stats("s1")
 
     elapsed_time = scenario_end - scenario_start
 
-    # Calculate traffic rates.
+    # Calculate interface traffic rates.
     for before, after in zip(before_stats, after_stats):
         add_rates(
             before,
@@ -95,6 +103,14 @@ def run_experiment(net, scenario_function, scenario_name, scenario_parameters=No
             elapsed_time
         )
 
+    # Calculate flow traffic rates.
+    flow_rates = calculate_flow_rates(
+        before_flows,
+        after_flows,
+        elapsed_time
+    )
+
+    # Add experiment metadata to interface records.
     for item in after_stats:
         item["experiment_id"] = experiment_id
         item["scenario_parameters"] = scenario_parameters or {}
@@ -105,13 +121,26 @@ def run_experiment(net, scenario_function, scenario_name, scenario_parameters=No
         )
         item["scenario_duration_s"] = round(elapsed_time, 3)
 
-    # Save the experiment results.
+    # Save interface telemetry.
     save_records(after_stats)
+
+    # Save flow telemetry.
+    save_flow_records(
+        flow_rates,
+        experiment_id,
+        scenario_name,
+        scenario_parameters
+    )
 
     print(f"Elapsed time: {elapsed_time:.3f} seconds")
 
     for item in after_stats:
         print(item)
+
+    print("\nFlow telemetry:")
+    for flow in flow_rates:
+        print(flow)
+
 
 def run_repeated_experiments(net, repetitions=3):
     """
@@ -186,6 +215,7 @@ def main():
 
     try:
         net.start()
+        install_icmp_monitoring_rules("s1")
 
         run_repeated_experiments(
             net,
